@@ -33,7 +33,7 @@ class PCN(data.Dataset):
             if config.CARS:
                 self.dataset_categories = [dc for dc in self.dataset_categories if dc['taxonomy_id'] == '02958343']
 
-        self.n_renderings = 8 if self.subset == 'train' else 1
+        self.n_renderings = config.N_RENDERINGS # 8 if self.subset == 'train' else 1
         self.file_list = self._get_file_list(self.subset, self.n_renderings)
         self.transforms = self._get_transforms(self.subset)
 
@@ -79,11 +79,11 @@ class PCN(data.Dataset):
                     'model_id':
                     s,
                     'partial_path': [
-                        self.partial_points_path % (subset, dc['taxonomy_id'], s, i)
+                        self.partial_points_path % (subset, dc['taxonomy_id'], s.split('.')[0], i)
                         for i in range(n_renderings)
                     ],
                     'gt_path':
-                    self.complete_points_path % (subset, dc['taxonomy_id'], s),
+                    self.complete_points_path % (subset, dc['taxonomy_id'], s.split('.')[0]),
                 })
 
         print_log('Complete collecting files of the dataset. Total files: %d' % len(file_list), logger='PCNDATASET')
@@ -93,7 +93,6 @@ class PCN(data.Dataset):
         sample = self.file_list[idx]
         data = {}
         rand_idx = random.randint(0, self.n_renderings - 1) if self.subset=='train' else 0
-
         for ri in ['partial', 'gt']:
             file_path = sample['%s_path' % ri]
             if type(file_path) == list:

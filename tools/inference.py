@@ -2,6 +2,7 @@
 # % Author: Castle
 # % Date:14/01/2023
 ###############################################################
+print("import started")
 import argparse
 import os
 import numpy as np
@@ -10,11 +11,12 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, '../'))
 
-from tools import builder
+from builder import *
 from utils.config import cfg_from_yaml_file
 from utils import misc
 from datasets.io import IO
 from datasets.data_transforms import Compose
+print("import finished")
 
 
 def get_args():
@@ -57,17 +59,18 @@ def inference_single(model, pc_path, args, config, root=None):
     # read single point cloud
     pc_ndarray = IO.get(pc_file).astype(np.float32)
     # transform it according to the model 
-    if config.dataset.train._base_['NAME'] == 'ShapeNet':
+    # if config.dataset.train._base_['NAME'] == 'ShapeNet':
         # normalize it to fit the model on ShapeNet-55/34
-        centroid = np.mean(pc_ndarray, axis=0)
-        pc_ndarray = pc_ndarray - centroid
-        m = np.max(np.sqrt(np.sum(pc_ndarray**2, axis=1)))
-        pc_ndarray = pc_ndarray / m
+    print("input data is normalized")
+    centroid = np.mean(pc_ndarray, axis=0)
+    pc_ndarray = pc_ndarray - centroid
+    m = np.max(np.sqrt(np.sum(pc_ndarray**2, axis=1)))
+    pc_ndarray = pc_ndarray / m
 
     transform = Compose([{
         'callback': 'UpSamplePoints',
         'parameters': {
-            'n_points': 2048
+            'n_points': 4096
         },
         'objects': ['input']
     }, {
@@ -99,13 +102,14 @@ def inference_single(model, pc_path, args, config, root=None):
     return
 
 def main():
+    print("inference started")
     args = get_args()
 
     # init config
     config = cfg_from_yaml_file(args.model_config)
     # build model
-    base_model = builder.model_builder(config.model)
-    builder.load_model(base_model, args.model_checkpoint)
+    base_model = model_builder(config.model)
+    load_model(base_model, args.model_checkpoint)
     base_model.to(args.device.lower())
     base_model.eval()
 

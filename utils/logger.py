@@ -26,7 +26,7 @@ def get_root_logger(log_file=None, log_level=logging.INFO, name='main'):
     return logger
 
 
-def get_logger(name, log_file=None, log_level=logging.INFO, file_mode='w'):
+def get_logger(name, log_file=None, log_level=logging.DEBUG, file_mode='w'):
     """Initialize and get a logger by name.
     If the logger has not been initialized, this method will initialize the
     logger by adding one or two handlers, otherwise the initialized logger will
