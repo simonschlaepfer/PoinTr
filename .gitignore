@@ -142,10 +142,8 @@ data/ShapeNet55/
 data/KITTI/cars
 data/KITTI/bboxes
 data/KITTI/tracklets
-data/PCN*
-data/PCN/train
-data/PCN/test
-data/PCN/val
+data/PCN/*
+data/
 ckpts/
 upload*
 KITTI_VIS/
@@ -153,3 +151,5 @@ models/pointrvrc/mm3d_pn2
 data/ShapeNet55-34/projected_partial_noise
 inference_result/
 slurm*
+demo/
+inference_*

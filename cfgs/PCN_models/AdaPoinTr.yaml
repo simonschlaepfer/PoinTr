@@ -26,7 +26,7 @@ dataset : {
   train : { _base_: cfgs/dataset_configs/PCN.yaml, 
             others: {subset: 'train'}},
   val : { _base_: cfgs/dataset_configs/PCN.yaml, 
-            others: {subset: 'test'}},
+            others: {subset: 'valid'}},
   test : { _base_: cfgs/dataset_configs/PCN.yaml, 
             others: {subset: 'test'}}}
             
