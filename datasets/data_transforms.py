@@ -25,15 +25,22 @@ class Compose(object):
             transform = tr['callback']
             objects = tr['objects']
             rnd_value = np.random.uniform(0, 1)
+            rnd_axis = np.random.uniform(-1, 1, 3)
+            rnd_axis /= np.linalg.norm(rnd_axis)
+
             if transform.__class__ in [NormalizeObjectPose]:
                 data = transform(data)
             else:
                 for k, v in data.items():
                     if k in objects and k in data:
                         if transform.__class__ in [
-                            RandomMirrorPoints
+                            RandomMirrorPoints, RandomScalePoints
                         ]:
                             data[k] = transform(v, rnd_value)
+                        elif transform.__class__ in [
+                            RandomRotatePoints
+                        ]:
+                            data[k] = transform(v, rnd_value, rnd_axis)
                         else:
                             data[k] = transform(v)
 
@@ -94,18 +101,62 @@ class RandomMirrorPoints(object):
     def __call__(self, ptcloud, rnd_value):
         trfm_mat = transforms3d.zooms.zfdir2mat(1)
         trfm_mat_x = np.dot(transforms3d.zooms.zfdir2mat(-1, [1, 0, 0]), trfm_mat)
+        trfm_mat_y = np.dot(transforms3d.zooms.zfdir2mat(-1, [0, 1, 0]), trfm_mat)
         trfm_mat_z = np.dot(transforms3d.zooms.zfdir2mat(-1, [0, 0, 1]), trfm_mat)
-        if rnd_value <= 0.25:
+        if rnd_value <= 0.1:
+            trfm_mat = np.dot(trfm_mat_x, trfm_mat)
+        elif rnd_value > 0.1 and rnd_value <= 0.2: 
+            trfm_mat = np.dot(trfm_mat_y, trfm_mat)
+        elif rnd_value > 0.2 and rnd_value <= 0.3: 
+            trfm_mat = np.dot(trfm_mat_z, trfm_mat)
+        elif rnd_value > 0.3 and rnd_value <= 0.4:
+            trfm_mat = np.dot(trfm_mat_x, trfm_mat)
+            trfm_mat = np.dot(trfm_mat_y, trfm_mat)
+        elif rnd_value > 0.4 and rnd_value <= 0.5: 
             trfm_mat = np.dot(trfm_mat_x, trfm_mat)
             trfm_mat = np.dot(trfm_mat_z, trfm_mat)
-        elif rnd_value > 0.25 and rnd_value <= 0.5:    # lgtm [py/redundant-comparison]
+        elif rnd_value > 0.5 and rnd_value <= 0.6: 
+            trfm_mat = np.dot(trfm_mat_y, trfm_mat)
+            trfm_mat = np.dot(trfm_mat_z, trfm_mat)
+        elif rnd_value > 0.6 and rnd_value <= 0.7:
             trfm_mat = np.dot(trfm_mat_x, trfm_mat)
-        elif rnd_value > 0.5 and rnd_value <= 0.75:
+            trfm_mat = np.dot(trfm_mat_y, trfm_mat)
             trfm_mat = np.dot(trfm_mat_z, trfm_mat)
 
         ptcloud[:, :3] = np.dot(ptcloud[:, :3], trfm_mat.T)
         return ptcloud
 
+class RandomScalePoints(object):
+    def __init__(self, parameters):
+        self.scale_low = parameters['scale_low']
+        self.scale_high = parameters['scale_high']
+
+    def __call__(self, ptcloud, rnd_value):
+        #rnd_value is from 0 to 1. Transform it to scale_low to scale_high
+        scale = (self.scale_high - self.scale_low) * rnd_value + self.scale_low
+        ptcloud[:, :3] *= scale
+        return ptcloud
+
+class RandomRotatePoints(object):
+    def __init__(self, parameters):
+        self.rotate_range = parameters['rotate_range']
+
+    def __call__(self, ptcloud, rnd_value, rnd_axis):
+        # transform rnd_value which is from 0 to 1 to angle which is from -rotate_range to rotate_range
+        angle = (rnd_value - 0.5) * 2 * self.rotate_range
+        trfm_mat = transforms3d.axangles.axangle2mat(rnd_axis, angle)
+        ptcloud[:, :3] = np.dot(ptcloud[:, :3], trfm_mat.T)
+        return ptcloud
+
+class RandomShiftPoints(object):
+    # shift each point individually with some gaussian noise
+    def __init__(self, parameters):
+        self.shift_range = parameters['shift_range']
+    
+    def __call__(self, ptcloud):
+        shift = np.random.normal(0, self.shift_range, ptcloud.shape)
+        ptcloud += shift
+        return ptcloud
 
 class NormalizeObjectPose(object):
     def __init__(self, parameters):

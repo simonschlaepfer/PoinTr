@@ -11,6 +11,8 @@ from extensions.chamfer_dist import ChamferDistanceL1
 from .build import MODELS, build_model_from_cfg
 from models.Transformer_utils import *
 from utils import misc
+import open3d as o3d
+import numpy as np
 
 class SelfAttnBlockApi(nn.Module):
     r'''
@@ -689,7 +691,74 @@ class SimpleEncoder(nn.Module):
         
         return center, features
 
-######################################## Fold ########################################    
+######################################## Fold ######################################## 
+class HandFold(nn.Module):
+    def __init__(self, in_channel, step , hidden_dim=512):
+        super().__init__()
+
+        self.in_channel = in_channel
+        self.step = step
+
+        template_raw = o3d.io.read_point_cloud('template.pcd') #576x3
+        points = torch.tensor(np.asarray(template_raw.points), dtype=torch.float32)
+        num_points = points.shape[0]
+
+        # Define the number of points you want to sample (e.g., 100)
+        num_points_to_sample = step*step
+
+        # Use torch.randperm to generate random indices and select points
+        selected_indices = torch.randperm(num_points)[:num_points_to_sample]
+
+        # Create a new tensor with the sampled points
+        sampled_points = points[selected_indices]
+        self.template = sampled_points.cuda()
+
+        # a = torch.linspace(-1., 1., steps=step, dtype=torch.float).view(1, step).expand(step, step).reshape(1, -1)
+        # b = torch.linspace(-1., 1., steps=step, dtype=torch.float).view(step, 1).expand(step, step).reshape(1, -1)
+        # self.folding_seed = torch.cat([a, b], dim=0).cuda()
+
+        self.folding1 = nn.Sequential(
+            nn.Conv1d(in_channel + 3, hidden_dim, 1),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(hidden_dim, hidden_dim//2, 1),
+            nn.BatchNorm1d(hidden_dim//2),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(hidden_dim//2, 3, 1),
+        )
+
+        self.folding2 = nn.Sequential(
+            nn.Conv1d(in_channel + 3, hidden_dim, 1),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(hidden_dim, hidden_dim//2, 1),
+            nn.BatchNorm1d(hidden_dim//2),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(hidden_dim//2, 3, 1),
+        )
+
+    def forward(self, x):
+        num_sample = self.step * self.step
+        bs = x.size(0)
+        # print("simon here")
+        features = x.view(bs, self.in_channel, 1).expand(bs, self.in_channel, num_sample) # b*mx384x64
+        # print("features", features.shape, num_sample, self.template.shape, self.template.t(), bs)
+        # seed = self.folding_seed.view(1, 2, num_sample).expand(bs, 2, num_sample).to(x.device) # b*mx2x64
+        # print("simon input shape", x.shape, num_sample, features.shape, seed.shape)
+        seed = self.template.t().view(1, 3, num_sample).expand(bs, 3, num_sample).to(x.device) # b*mx3x64
+        # print("seed", seed.shape)
+        seed = seed.float()
+        # b*mx3x64
+
+        x = torch.cat([seed, features], dim=1) # b*mx386x64
+        fd1 = self.folding1(x)
+        x = torch.cat([fd1, features], dim=1)
+        fd2 = self.folding2(x) # b*mx3x64
+        # print("simon conv shape", fd2.shape)
+
+        return fd2
+
+
 class Fold(nn.Module):
     def __init__(self, in_channel, step , hidden_dim=512):
         super().__init__()
@@ -724,13 +793,14 @@ class Fold(nn.Module):
     def forward(self, x):
         num_sample = self.step * self.step
         bs = x.size(0)
-        features = x.view(bs, self.in_channel, 1).expand(bs, self.in_channel, num_sample)
-        seed = self.folding_seed.view(1, 2, num_sample).expand(bs, 2, num_sample).to(x.device)
-
-        x = torch.cat([seed, features], dim=1)
+        print("fold debug", x.shape, bs)
+        features = x.view(bs, self.in_channel, 1).expand(bs, self.in_channel, num_sample) # b*mx384x64
+        seed = self.folding_seed.view(1, 2, num_sample).expand(bs, 2, num_sample).to(x.device) # b*mx2x64
+        # print("simon input shape", x.shape, num_sample, features.shape, seed.shape)
+        x = torch.cat([seed, features], dim=1) # b*mx386x64
         fd1 = self.folding1(x)
         x = torch.cat([fd1, features], dim=1)
-        fd2 = self.folding2(x)
+        fd2 = self.folding2(x) # b*mx3x64
 
         return fd2
 
@@ -899,7 +969,7 @@ class AdaPoinTr(nn.Module):
         self.num_points = getattr(config, 'num_points', None)
 
         self.decoder_type = config.decoder_type
-        assert self.decoder_type in ['fold', 'fc'], f'unexpected decoder_type {self.decoder_type}'
+        assert self.decoder_type in ['fold', 'fc', 'hand_fold'], f'unexpected decoder_type {self.decoder_type}'
 
         self.fold_step = 8
         self.base_model = PCTransformer(config)
@@ -907,6 +977,13 @@ class AdaPoinTr(nn.Module):
         if self.decoder_type == 'fold':
             self.factor = self.fold_step**2
             self.decode_head = Fold(self.trans_dim, step=self.fold_step, hidden_dim=256)  # rebuild a cluster point
+            # print("debug linear layer", self.num_query * self.factor, self.num_query * self.factor // 2)
+            self.reduce_layer = nn.Linear(self.num_query * self.factor, self.num_query * self.factor // 2)
+        elif self.decoder_type == 'hand_fold':
+            self.factor = self.fold_step**2
+            self.decode_head = HandFold(self.trans_dim, step=self.fold_step, hidden_dim=256)  # rebuild a cluster point
+            # print("debug linear layer", self.num_query * self.factor, self.num_query * self.factor // 2)
+            self.reduce_layer = nn.Linear(self.num_query * self.factor, self.num_points)
         else:
             if self.num_points is not None:
                 self.factor = self.num_points // self.num_query
@@ -930,6 +1007,8 @@ class AdaPoinTr(nn.Module):
     def get_loss(self, ret, gt, epoch=1):
         pred_coarse, denoised_coarse, denoised_fine, pred_fine = ret
         
+        # print("debug simon here", pred_fine.shape, pred_fine.size(1), gt.shape, gt.size(1))
+        # print("loss shape", pred_fine.shape, gt.shape)
         assert pred_fine.size(1) == gt.size(1)
 
         # denoise loss
@@ -948,6 +1027,7 @@ class AdaPoinTr(nn.Module):
         return loss_denoised, loss_recon
 
     def forward(self, xyz):
+        # print("simon forward debug", xyz.shape)
         q, coarse_point_cloud, denoise_length = self.base_model(xyz) # B M C and B M 3
     
         B, M ,C = q.shape
@@ -960,27 +1040,36 @@ class AdaPoinTr(nn.Module):
             q,
             coarse_point_cloud], dim=-1)  # B M 1027 + C
 
-        
         # NOTE: foldingNet
-        if self.decoder_type == 'fold':
+        if self.decoder_type == 'fold' or self.decoder_type == 'hand_fold':
             rebuild_feature = self.reduce_map(rebuild_feature.reshape(B*M, -1)) # BM C
             relative_xyz = self.decode_head(rebuild_feature).reshape(B, M, 3, -1)    # B M 3 S
-            rebuild_points = (relative_xyz + coarse_point_cloud.unsqueeze(-1)).transpose(2,3)  # B M S 3
+            rebuild_points = (relative_xyz + coarse_point_cloud.unsqueeze(-1)).transpose(2,3)  # B M S 3 where S is gridsize thus 64
 
         else:
             rebuild_feature = self.reduce_map(rebuild_feature) # B M C
             relative_xyz = self.decode_head(rebuild_feature)   # B M S 3
             rebuild_points = (relative_xyz + coarse_point_cloud.unsqueeze(-2))  # B M S 3
 
+        # print("self decoder", self.decoder_type)
         if self.training:
             # split the reconstruction and denoise task
             pred_fine = rebuild_points[:, :-denoise_length].reshape(B, -1, 3).contiguous()
+            # print("simon intermediate", pred_fine.shape)
+            if self.decoder_type == 'fold' or self.decoder_type == 'hand_fold':
+                pred_fine_t = pred_fine.transpose(1,2).contiguous()
+                pred_fine_t = self.reduce_layer(pred_fine_t)
+                pred_fine = pred_fine_t.transpose(1,2).contiguous()
+                assert pred_fine.size(1) == self.num_points
+            else:
+                # print("simon here")
+                assert pred_fine.size(1) == self.num_query * self.factor
             pred_coarse = coarse_point_cloud[:, :-denoise_length].contiguous()
-
+            # print("simon pred_fine", pred_fine.shape, pred_coarse.shape)
             denoised_fine = rebuild_points[:, -denoise_length:].reshape(B, -1, 3).contiguous()
             denoised_coarse = coarse_point_cloud[:, -denoise_length:].contiguous()
 
-            assert pred_fine.size(1) == self.num_query * self.factor
+            
             assert pred_coarse.size(1) == self.num_query
 
             ret = (pred_coarse, denoised_coarse, denoised_fine, pred_fine)
@@ -989,8 +1078,13 @@ class AdaPoinTr(nn.Module):
         else:
             assert denoise_length == 0
             rebuild_points = rebuild_points.reshape(B, -1, 3).contiguous()  # B N 3
-
-            assert rebuild_points.size(1) == self.num_query * self.factor
+            if self.decoder_type == 'fold' or self.decoder_type == 'hand_fold':
+                rebuild_points_t = rebuild_points.transpose(1,2).contiguous() 
+                rebuild_points_t = self.reduce_layer(rebuild_points_t)
+                rebuild_points = rebuild_points_t.transpose(1,2).contiguous()
+                assert rebuild_points.size(1) == self.num_points
+            else:
+                assert rebuild_points.size(1) == self.num_query * self.factor
             assert coarse_point_cloud.size(1) == self.num_query
 
             ret = (coarse_point_cloud, rebuild_points)

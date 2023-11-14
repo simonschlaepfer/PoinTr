@@ -49,6 +49,25 @@ class PCN(data.Dataset):
                 'callback': 'RandomMirrorPoints',
                 'objects': ['partial', 'gt']
             },{
+                'callback': 'RandomScalePoints',
+                'parameters': {
+                    'scale_low': 0.85,
+                    'scale_high': 1.15
+                },
+                'objects': ['partial', 'gt'] 
+            },{
+                'callback': 'RandomRotatePoints',
+                'objects': ['partial', 'gt'],
+                'parameters': {
+                    'rotate_range': 180,
+                }
+            },{
+                'callback': 'RandomShiftPoints',
+                'objects': ['partial'],
+                'parameters': {
+                    'shift_range': 0.001,
+                }
+            },{
                 'callback': 'ToTensor',
                 'objects': ['partial', 'gt']
             }])

@@ -9,12 +9,15 @@ from utils.logger import *
 from utils.AverageMeter import AverageMeter
 from utils.metrics import Metrics
 from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
+import numpy as np
 
 def run_net(args, config, train_writer=None, val_writer=None):
     logger = get_logger(args.log_name)
     # build dataset
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
                                                             builder.dataset_builder(args, config.dataset.val)
+    
+    print("simon debug", len(test_dataloader))
     # build model
     base_model = builder.model_builder(config.model)
     if args.use_gpu:
@@ -96,6 +99,11 @@ def run_net(args, config, train_writer=None, val_writer=None):
             npoints = config.dataset.train._base_.N_POINTS
             dataset_name = config.dataset.train._base_.NAME
             if dataset_name == 'PCN' or dataset_name == 'Completion3D' or dataset_name == 'Projected_ShapeNet':
+                # partial = data[0][0].detach().cpu().numpy()
+                # gt = data[1][0].detach().cpu().numpy()
+                # print(partial, partial.shape, gt.shape)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'input2.npy'), partial)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'gt2.npy'), gt)
                 partial = data[0].cuda()
                 gt = data[1].cuda()
                 if config.dataset.train._base_.CARS:
