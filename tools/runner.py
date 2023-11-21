@@ -17,7 +17,6 @@ def run_net(args, config, train_writer=None, val_writer=None):
     (train_sampler, train_dataloader), (_, test_dataloader) = builder.dataset_builder(args, config.dataset.train), \
                                                             builder.dataset_builder(args, config.dataset.val)
     
-    print("simon debug", len(test_dataloader))
     # build model
     base_model = builder.model_builder(config.model)
     if args.use_gpu:
@@ -102,8 +101,8 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 # partial = data[0][0].detach().cpu().numpy()
                 # gt = data[1][0].detach().cpu().numpy()
                 # print(partial, partial.shape, gt.shape)
-                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'input2.npy'), partial)
-                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'gt2.npy'), gt)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'input6.npy'), partial)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'gt6.npy'), gt)
                 partial = data[0].cuda()
                 gt = data[1].cuda()
                 if config.dataset.train._base_.CARS:

@@ -752,9 +752,11 @@ class HandFold(nn.Module):
 
         x = torch.cat([seed, features], dim=1) # b*mx386x64
         fd1 = self.folding1(x)
+        # print("simon forward", x.shape, fd1.shape)
         x = torch.cat([fd1, features], dim=1)
         fd2 = self.folding2(x) # b*mx3x64
         # print("simon conv shape", fd2.shape)
+        # print("simon forward", x.shape, fd2.shape)
 
         return fd2
 
@@ -793,7 +795,7 @@ class Fold(nn.Module):
     def forward(self, x):
         num_sample = self.step * self.step
         bs = x.size(0)
-        print("fold debug", x.shape, bs)
+        # print("fold debug", x.shape, bs)
         features = x.view(bs, self.in_channel, 1).expand(bs, self.in_channel, num_sample) # b*mx384x64
         seed = self.folding_seed.view(1, 2, num_sample).expand(bs, 2, num_sample).to(x.device) # b*mx2x64
         # print("simon input shape", x.shape, num_sample, features.shape, seed.shape)
@@ -978,12 +980,10 @@ class AdaPoinTr(nn.Module):
             self.factor = self.fold_step**2
             self.decode_head = Fold(self.trans_dim, step=self.fold_step, hidden_dim=256)  # rebuild a cluster point
             # print("debug linear layer", self.num_query * self.factor, self.num_query * self.factor // 2)
-            self.reduce_layer = nn.Linear(self.num_query * self.factor, self.num_query * self.factor // 2)
         elif self.decoder_type == 'hand_fold':
             self.factor = self.fold_step**2
             self.decode_head = HandFold(self.trans_dim, step=self.fold_step, hidden_dim=256)  # rebuild a cluster point
             # print("debug linear layer", self.num_query * self.factor, self.num_query * self.factor // 2)
-            self.reduce_layer = nn.Linear(self.num_query * self.factor, self.num_points)
         else:
             if self.num_points is not None:
                 self.factor = self.num_points // self.num_query
@@ -1057,9 +1057,7 @@ class AdaPoinTr(nn.Module):
             pred_fine = rebuild_points[:, :-denoise_length].reshape(B, -1, 3).contiguous()
             # print("simon intermediate", pred_fine.shape)
             if self.decoder_type == 'fold' or self.decoder_type == 'hand_fold':
-                pred_fine_t = pred_fine.transpose(1,2).contiguous()
-                pred_fine_t = self.reduce_layer(pred_fine_t)
-                pred_fine = pred_fine_t.transpose(1,2).contiguous()
+                # print("simon pred fine size", pred_fine.shape, self.num_points)
                 assert pred_fine.size(1) == self.num_points
             else:
                 # print("simon here")
@@ -1079,9 +1077,6 @@ class AdaPoinTr(nn.Module):
             assert denoise_length == 0
             rebuild_points = rebuild_points.reshape(B, -1, 3).contiguous()  # B N 3
             if self.decoder_type == 'fold' or self.decoder_type == 'hand_fold':
-                rebuild_points_t = rebuild_points.transpose(1,2).contiguous() 
-                rebuild_points_t = self.reduce_layer(rebuild_points_t)
-                rebuild_points = rebuild_points_t.transpose(1,2).contiguous()
                 assert rebuild_points.size(1) == self.num_points
             else:
                 assert rebuild_points.size(1) == self.num_query * self.factor

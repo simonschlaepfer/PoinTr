@@ -10,6 +10,7 @@ import cv2
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, '../'))
+from tqdm import tqdm
 
 from builder import *
 from utils.config import cfg_from_yaml_file
@@ -59,18 +60,18 @@ def inference_single(model, pc_path, args, config, root=None):
     # read single point cloud
     pc_ndarray = IO.get(pc_file).astype(np.float32)
     # transform it according to the model 
-    # if config.dataset.train._base_['NAME'] == 'ShapeNet':
+    if config.dataset.train._base_['NAME'] == 'ShapeNet':
         # normalize it to fit the model on ShapeNet-55/34
-    print("input data is normalized")
-    centroid = np.mean(pc_ndarray, axis=0)
-    pc_ndarray = pc_ndarray - centroid
-    m = np.max(np.sqrt(np.sum(pc_ndarray**2, axis=1)))
-    pc_ndarray = pc_ndarray / m
+        print("input data is normalized")
+        centroid = np.mean(pc_ndarray, axis=0)
+        pc_ndarray = pc_ndarray - centroid
+        m = np.max(np.sqrt(np.sum(pc_ndarray**2, axis=1)))
+        pc_ndarray = pc_ndarray / m
 
     transform = Compose([{
         'callback': 'UpSamplePoints',
         'parameters': {
-            'n_points': 4096
+            'n_points': 2048
         },
         'objects': ['input']
     }, {
@@ -115,7 +116,7 @@ def main():
 
     if args.pc_root != '':
         pc_file_list = os.listdir(args.pc_root)
-        for pc_file in pc_file_list:
+        for pc_file in tqdm(pc_file_list):
             inference_single(base_model, pc_file, args, config, root=args.pc_root)
     else:
         inference_single(base_model, args.pc, args, config)

@@ -68,6 +68,13 @@ class PCN(data.Dataset):
                     'shift_range': 0.001,
                 }
             },{
+                'callback': 'RandomShiftCloud',
+                'objects': ['partial', 'gt'],
+                'parameters': {
+                    'shift_range': 0.1, # 0.25
+                }
+            },{
+            
                 'callback': 'ToTensor',
                 'objects': ['partial', 'gt']
             }])

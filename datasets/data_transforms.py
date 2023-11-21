@@ -38,7 +38,7 @@ class Compose(object):
                         ]:
                             data[k] = transform(v, rnd_value)
                         elif transform.__class__ in [
-                            RandomRotatePoints
+                            RandomRotatePoints, RandomShiftCloud
                         ]:
                             data[k] = transform(v, rnd_value, rnd_axis)
                         else:
@@ -157,6 +157,16 @@ class RandomShiftPoints(object):
         shift = np.random.normal(0, self.shift_range, ptcloud.shape)
         ptcloud += shift
         return ptcloud
+
+class RandomShiftCloud(object):
+    def __init__(self, parameters) -> None:
+        self.shift_range = parameters['shift_range']
+
+    def __call__(self, ptcloud, rnd_value, rnd_axis):
+        shift = self.shift_range * rnd_axis
+        ptcloud += shift
+        return ptcloud
+
 
 class NormalizeObjectPose(object):
     def __init__(self, parameters):
