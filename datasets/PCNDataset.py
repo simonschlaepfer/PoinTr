@@ -25,6 +25,7 @@ class PCN(data.Dataset):
         self.npoints = config.N_POINTS
         self.subset = config.subset
         self.cars = config.CARS
+        self.perspective = config.PERSPECTIVE
 
         # Load the dataset indexing file
         self.dataset_categories = []
@@ -118,7 +119,7 @@ class PCN(data.Dataset):
     def __getitem__(self, idx):
         sample = self.file_list[idx]
         data = {}
-        rand_idx = random.randint(0, self.n_renderings - 1) if self.subset=='train' else 0
+        rand_idx = random.randint(0, self.n_renderings - 1) if self.subset=='train' else self.perspective
         for ri in ['partial', 'gt']:
             file_path = sample['%s_path' % ri]
             if type(file_path) == list:

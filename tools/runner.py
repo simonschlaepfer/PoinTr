@@ -10,6 +10,7 @@ from utils.AverageMeter import AverageMeter
 from utils.metrics import Metrics
 from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
 import numpy as np
+import cv2
 
 def run_net(args, config, train_writer=None, val_writer=None):
     logger = get_logger(args.log_name)
@@ -325,7 +326,6 @@ def test_net(args, config):
     logger = get_logger(args.log_name)
     print_log('Tester start ... ', logger = logger)
     _, test_dataloader = builder.dataset_builder(args, config.dataset.test)
- 
     base_model = builder.model_builder(config.model)
     # load checkpoints
     builder.load_model(base_model, args.ckpts, logger = logger)
@@ -343,14 +343,22 @@ def test_net(args, config):
     test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger=logger)
 
 def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, logger = None):
-
     base_model.eval()  # set model to eval mode
 
     test_losses = AverageMeter(['SparseLossL1', 'SparseLossL2', 'DenseLossL1', 'DenseLossL2'])
     test_metrics = AverageMeter(Metrics.names())
+    if args.save_pc_dir != '':    
+        save_path_base = os.path.join('./output', args.save_pc_dir + '_' + str(config.dataset.test._base_.PERSPECTIVE))
+        os.makedirs(save_path_base, exist_ok=True)
+    if args.save_metrics:
+        metric_names = Metrics.names()
+        metric_names = ['sample_id' + '_' + str(config.dataset.test._base_.PERSPECTIVE)] + metric_names
+        metric_names = ','.join(metric_names)
+        metric_names += '\n'
+        with open(os.path.join(save_path_base, 'metrics.csv'), 'a') as f:
+            f.write(metric_names)
     category_metrics = dict()
     n_samples = len(test_dataloader) # bs is 1
-
     with torch.no_grad():
         for idx, (taxonomy_ids, model_ids, data) in enumerate(test_dataloader):
             taxonomy_id = taxonomy_ids[0] if isinstance(taxonomy_ids[0], str) else taxonomy_ids[0].item()
@@ -421,6 +429,33 @@ def test(base_model, test_dataloader, ChamferDisL1, ChamferDisL2, args, config, 
                 continue
             else:
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
+
+            parent_folder_name = model_id.split('.')[0]
+            save_path = os.path.join(save_path_base, parent_folder_name)
+            os.makedirs(save_path, exist_ok=True)
+            prediction = ret[-1].squeeze(0).detach().cpu().numpy()
+            ground_truth = gt.squeeze(0).detach().cpu().numpy()
+            partial = partial.squeeze(0).detach().cpu().numpy()
+            if args.save_pc:
+                np.save(os.path.join(save_path, 'prediction.npy'), prediction)
+                np.save(os.path.join(save_path, 'ground_truth.npy'), ground_truth)
+            if args.save_vis_img:
+                prediction_img = misc.get_ptcloud_img(prediction)
+                ground_truth_img = misc.get_ptcloud_img(ground_truth)
+                partial_img = misc.get_ptcloud_img(partial)
+                cv2.imwrite(os.path.join(save_path, 'prediction.jpg'), prediction_img)
+                cv2.imwrite(os.path.join(save_path, 'ground_truth.jpg'), ground_truth_img)
+                cv2.imwrite(os.path.join(save_path, 'partial.jpg'), partial_img)
+            if args.save_metrics:
+                # make a csv file with all metrics, save it to the output folder and always add a new line with the respective parent_folder_name
+                metrics = Metrics.get(ret[-1], gt)
+                metrics = [metric.item() for metric in metrics]
+                metrics = [parent_folder_name] + metrics
+                metrics = [str(metric) for metric in metrics]
+                metrics = ','.join(metrics)
+                metrics = metrics + '\n'
+                with open(os.path.join(save_path_base, 'metrics.csv'), 'a') as f:
+                    f.write(metrics)
 
             if (idx+1) % 200 == 0:
                 print_log('Test[%d/%d] Taxonomy = %s Sample = %s Losses = %s Metrics = %s' %

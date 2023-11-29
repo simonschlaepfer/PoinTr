@@ -46,7 +46,12 @@ def get_args():
         '--mode', 
         choices=['easy', 'median', 'hard', None],
         default=None,
-        help = 'difficulty mode for shapenet')        
+        help = 'difficulty mode for shapenet') 
+    # new args
+    parser.add_argument('--save_pc', action='store_true', default=False, help='whether to save the complete point cloud')
+    parser.add_argument('--save_pc_dir', type=str, default='', help='the directory to save the complete point cloud')
+    parser.add_argument('--save_vis_img', action='store_true', default=False, help='whether to save img of complete point cloud') 
+    parser.add_argument('--save_metrics', action='store_true', default=False, help='whether to save metrics')
     args = parser.parse_args()
 
     if args.test and args.resume:

@@ -17,6 +17,9 @@ from utils.config import cfg_from_yaml_file
 from utils import misc
 from datasets.io import IO
 from datasets.data_transforms import Compose
+from extensions.chamfer_dist import ChamferDistanceL1, ChamferDistanceL2
+import os
+
 print("import finished")
 
 
@@ -100,6 +103,27 @@ def inference_single(model, pc_path, args, config, root=None):
             cv2.imwrite(os.path.join(target_path, 'input.jpg'), input_img)
             cv2.imwrite(os.path.join(target_path, 'fine.jpg'), dense_img)
     
+    # correct chamfer calculation
+    # get ground truth point cloud
+    id = pc_path.split('/')[-1].split('.')[0].split('_')[0]
+    gt_root = './data/PCN/test/complete/10'
+    gt_path = os.path.join(gt_root, id + '.pcd')
+    gt_points_np = IO.get(gt_path).astype(np.float32)
+    gt_points = torch.from_numpy(gt_points_np)
+    pred_points = ret[-1]
+    
+    calc_chamfer_l1 = ChamferDistanceL1()
+    chamfer_dist_l1 = calc_chamfer_l1(pred_points, gt_points.unsqueeze(0).to(args.device.lower()))
+    # save it to txt file
+    with open(os.path.join(target_path, 'chamfer_dist_l1.txt'), 'w') as f:
+        f.write(str(chamfer_dist_l1.item()*1000))
+    
+    calc_chamfer_l2 = ChamferDistanceL2()
+    chamfer_dist_l2 = calc_chamfer_l2(pred_points, gt_points.unsqueeze(0).to(args.device.lower()))
+    # save it to txt file
+    with open(os.path.join(target_path, 'chamfer_dist_l2.txt'), 'w') as f:
+        f.write(str(chamfer_dist_l2.item()*1000))
+
     return
 
 def main():

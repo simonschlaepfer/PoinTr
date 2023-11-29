@@ -154,3 +154,4 @@ slurm*
 demo/
 inference_*
 demo_results/
+output/
