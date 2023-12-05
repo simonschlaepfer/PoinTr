@@ -102,8 +102,8 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 # partial = data[0][0].detach().cpu().numpy()
                 # gt = data[1][0].detach().cpu().numpy()
                 # print(partial, partial.shape, gt.shape)
-                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'input6.npy'), partial)
-                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'gt6.npy'), gt)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'input9.npy'), partial)
+                # np.save(os.path.join('/cluster/scratch/simschla/PoinTr/debug', 'gt9.npy'), gt)
                 partial = data[0].cuda()
                 gt = data[1].cuda()
                 if config.dataset.train._base_.CARS:

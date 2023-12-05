@@ -99,6 +99,7 @@ def inference_single(model, pc_path, args, config, root=None):
         np.save(os.path.join(target_path, 'fine.npy'), dense_points)
         if args.save_vis_img:
             input_img = misc.get_ptcloud_img(pc_ndarray_normalized['input'].numpy())
+            print("debug simon", dense_points.shape, dense_points.dtype)
             dense_img = misc.get_ptcloud_img(dense_points)
             cv2.imwrite(os.path.join(target_path, 'input.jpg'), input_img)
             cv2.imwrite(os.path.join(target_path, 'fine.jpg'), dense_img)

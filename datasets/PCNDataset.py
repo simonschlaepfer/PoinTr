@@ -52,8 +52,8 @@ class PCN(data.Dataset):
             },{
                 'callback': 'RandomScalePoints',
                 'parameters': {
-                    'scale_low': 0.85,
-                    'scale_high': 1.15
+                    'scale_low': 0.80, # 0.85
+                    'scale_high': 1.2 # 1.15
                 },
                 'objects': ['partial', 'gt'] 
             },{
@@ -66,13 +66,13 @@ class PCN(data.Dataset):
                 'callback': 'RandomShiftPoints',
                 'objects': ['partial'],
                 'parameters': {
-                    'shift_range': 0.001,
+                    'shift_range': 0.01, # 0.001
                 }
             },{
                 'callback': 'RandomShiftCloud',
                 'objects': ['partial', 'gt'],
                 'parameters': {
-                    'shift_range': 0.1, # 0.25
+                    'shift_range': 0.2, # 0.25
                 }
             },{
             

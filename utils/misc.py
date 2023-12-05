@@ -211,15 +211,17 @@ def get_ptcloud_img(ptcloud):
     try:
         ax = fig.gca(projection=Axes3D.name, adjustable='box')
     except:
+        print("simon here")
         ax = fig.add_subplot(projection=Axes3D.name, adjustable='box')
     ax.axis('off')
     # ax.axis('scaled')
     ax.view_init(30, 45)
     max, min = np.max(ptcloud), np.min(ptcloud)
+    print("simon debug", max, min)
     ax.set_xbound(min, max)
     ax.set_ybound(min, max)
     ax.set_zbound(min, max)
-    ax.scatter(x, y, z, zdir='z', c=x, cmap='jet')
+    ax.scatter(x, y, z, zdir='z', c=x, cmap='jet', s=2)
 
     fig.canvas.draw()
     img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
